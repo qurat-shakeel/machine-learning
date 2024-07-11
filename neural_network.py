@@ -14,12 +14,15 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-import tensorflow as tf
+from sklearn.model_selection import RandomizedSearchCV
+from scikeras.wrappers import KerasClassifier
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam
 import random
+
+!pip install scikeras
 
 # Set random seeds for reproducibility
 seed = 42
@@ -64,7 +67,7 @@ preprocessor = ColumnTransformer(
         ('cat', categorical_transformer, categorical_features)
     ])
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=seed)
 
 X_train = preprocessor.fit_transform(X_train)
 X_test = preprocessor.transform(X_test)
@@ -76,24 +79,38 @@ y_test = np.array(y_test)
 
 
 
-model = Sequential([
-    Dense(128, input_dim=X_train.shape[1], activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001), name='l1'),
-    Dropout(0.3, name='dropout1'),
-    Dense(64, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001), name='l2'),
-    Dropout(0.3, name='dropout2'),
-    Dense(32, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001), name='l3'),
-    Dropout(0.3, name='dropout3'),
-    Dense(2, activation='softmax', name='output')
-])
+def create_model(learning_rate=0.001, dropout_rate=0.3, l2_reg=0.001):
+    model = Sequential([
+        Dense(128, input_dim=X_train.shape[1], activation='relu', kernel_regularizer=tf.keras.regularizers.l2(l2_reg)),
+        Dropout(dropout_rate),
+        Dense(64, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(l2_reg)),
+        Dropout(dropout_rate),
+        Dense(32, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(l2_reg)),
+        Dropout(dropout_rate),
+        Dense(1, activation='sigmoid')
+    ])
+    optimizer = Adam(learning_rate=learning_rate)
+    model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+    return model
 
-learning_rate = 0.001
-optimizer = Adam(learning_rate=learning_rate)
+model = KerasClassifier(model=create_model, verbose=0)
 
-model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+# Define hyperparameters grid
+param_grid = {
+    'batch_size': [16, 32, 64],
+    'epochs': [50, 100, 200],
+    'model__learning_rate': [0.001, 0.01, 0.1],
+    'model__dropout_rate': [0.3, 0.4, 0.5],
+    'model__l2_reg': [0.001, 0.01]
+}
 
 early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
 
+random_search = RandomizedSearchCV(estimator=model, param_distributions=param_grid, n_iter=10, cv=3, verbose=1, random_state=seed)
+random_search_result = random_search.fit(X_train, y_train, validation_data=(X_test, y_test), callbacks=[early_stopping])
+
 history = model.fit(X_train, y_train, epochs=100, validation_data=(X_test, y_test), callbacks=[early_stopping])
 
-loss, accuracy = model.evaluate(X_test, y_test)
-print(f'Test Accuracy: {accuracy * 100:.2f}%')
+best_model = random_search_result.best_estimator_
+loss, accuracy = best_model.model_.evaluate(X_test, y_test)
+print(f'Best Model Test Accuracy: {accuracy * 100:.2f}%')
