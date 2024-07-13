@@ -60,27 +60,6 @@ plt.show()
 # Print column names to check available columns
 print("Column names in the dataset:", df.columns)
 
-# Check for 'Class' column before handling imbalanced data
-from imblearn.over_sampling import SMOTE
-if 'Class' in df.columns:
-    print("'Class' column is present.")
-    X = df.drop('Class', axis=1)
-    y = df['Class']
-
-    # Handle imbalanced data using SMOTE
-    smote = SMOTE(random_state=42)
-    X_resampled, y_resampled = smote.fit_resample(X, y)
-    # Create a new DataFrame for the resampled data
-    df_resampled = pd.DataFrame(X_resampled, columns=X.columns)
-    df_resampled['Class'] = y_resampled
-    # Save the cleaned data
-    df_resampled.to_csv('cleaned_creditcard.csv', index=False)
-    print("Data cleaning complete. Cleaned data saved to 'cleaned_creditcard.csv'.")
-else:
-    print("'Class' column not found in the DataFrame. Cannot handle imbalanced data.")
-    # Exit the script if 'Class' column is not found
-    exit()
-
 # Define features and target
 X = df.drop(columns=['Class'])
 y = df['Class']
@@ -89,13 +68,9 @@ y = df['Class']
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
-# Handle imbalanced data using SMOTE
-smote = SMOTE(random_state=42)
-X_resampled, y_resampled = smote.fit_resample(X_scaled, y)
-
 from sklearn.model_selection import train_test_split
 # Split the data into training and test sets
-X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 pip install lazypredict
 
