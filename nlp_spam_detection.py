@@ -37,8 +37,6 @@ df
 
 df.shape
 
-
-
 def preprocess_text(text):
     # Lowercase the text
     text = text.lower()
@@ -76,10 +74,6 @@ y = df['label'].map({'ham': 0, 'spam': 1})
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-
-
-
-
 # Feature Extraction using TF-IDF
 tfidf_vectorizer = TfidfVectorizer(max_features=3000)
 X_train_tfidf = tfidf_vectorizer.fit_transform(X_train)
@@ -94,27 +88,19 @@ y_pred = model.predict(X_test_tfidf)
 
 # Evaluation
 print(f"Accuracy: {accuracy_score(y_test, y_pred)}")
-print("Confusion Matrix:")
-print(confusion_matrix(y_test, y_pred))
 print("Classification Report:")
 print(classification_report(y_test, y_pred))
-
-# Visualization of Confusion Matrix
-sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt='d', cmap='Blues')
-plt.xlabel('Predicted')
-plt.ylabel('True')
-plt.show()
 
 !pip install sentence-transformers
 
 from sentence_transformers import SentenceTransformer
 from imblearn.over_sampling import SMOTE
 # Load SBERT model
-model = SentenceTransformer('all-MiniLM-L6-v2')
+model = SentenceTransformer('all-distilroberta-v1')
 
 # Generate SBERT embeddings for the training and test sets
-X_train_embeddings = model.encode(X_train.tolist())
-X_test_embeddings = model.encode(X_test.tolist())
+X_train_embeddings = model.encode(X_train.tolist(), convert_to_numpy=True)
+X_test_embeddings = model.encode(X_test.tolist(), convert_to_numpy=True)
 
 # Handle class imbalance using SMOTE
 smote = SMOTE(random_state=42, sampling_strategy=0.5)
@@ -122,23 +108,14 @@ X_train_smote, y_train_smote = smote.fit_resample(X_train_embeddings, y_train)
 
 # Model Training
 classifier = LogisticRegression(max_iter=1000)
-classifier.fit(X_train_embeddings, y_train)
+classifier.fit(X_train_smote, y_train_smote)
 
-# Predictions
 y_pred = classifier.predict(X_test_embeddings)
 
 # Evaluation
 print(f"Accuracy: {accuracy_score(y_test, y_pred)}")
-print("Confusion Matrix:")
-print(confusion_matrix(y_test, y_pred))
 print("Classification Report:")
 print(classification_report(y_test, y_pred))
-
-# Visualization of Confusion Matrix
-sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt='d', cmap='Blues')
-plt.xlabel('Predicted')
-plt.ylabel('True')
-plt.show()
 
 
 
